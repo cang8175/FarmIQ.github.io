@@ -1,34 +1,55 @@
-const warehouses = [
+// ========== 倉庫設定 ==========
+var warehouses = [
     { id: "A", name: "倉庫 A" },
     { id: "B", name: "倉庫 B" },
     { id: "C", name: "倉庫 C" }
 ];
 
-const grid = document.getElementById("warehouseGrid");
+// ========== 工具 ==========
+function readSaved(key) {
+    try {
+        var raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        return null;
+    }
+}
 
-warehouses.forEach(w => {
-    grid.innerHTML += `
-  <section class="card" id="card-${w.id}">
-    <h2>${w.name} <span id="status-${w.id}" class="status-pill status-ok">模擬中</span></h2>
-    <div class="metric">🌡️ <span id="temp-${w.id}" class="value">--</span> °C</div>
-    <div class="metric">💧 <span id="hum-${w.id}" class="value">--</span> %</div>
-    <canvas id="chart-${w.id}"></canvas>
-  </section>`;
+function save(key, obj) {
+    try { localStorage.setItem(key, JSON.stringify(obj)); } catch (e) {}
+}
+
+// ========== 初始化畫面 ==========
+var grid = document.getElementById("warehouseGrid");
+warehouses.forEach(function(w) {
+    grid.innerHTML +=
+        '<section class="card" id="card-' + w.id + '">' +
+        '  <h2>' + w.name + ' <span id="status-' + w.id + '" class="status-pill status-ok">模擬中</span></h2>' +
+        '  <div class="metric">🌡️ 溫度：<span id="temp-' + w.id + '" class="value">--</span> °C</div>' +
+        '  <div class="metric">💧 濕度：<span id="hum-' + w.id + '" class="value">--</span> %</div>' +
+        '  <canvas id="chart-' + w.id + '"></canvas>' +
+        '</section>';
 });
 
-const state = {};
-warehouses.forEach(w => {
+// ========== 狀態物件 ==========
+var state = {};
+warehouses.forEach(function(w) {
+    var saved = readSaved('data_' + w.id);
+    var baseTemp = (saved && typeof saved.temp === 'number') ? saved.temp : (22 + Math.random() * 3);
+    var baseHum = (saved && typeof saved.hum === 'number') ? saved.hum : (58 + Math.random() * 4);
+    var baseStatus = (saved && saved.status) ? saved.status : 'ok';
+
     state[w.id] = {
-        temp: 22 + Math.random() * 3,
-        hum: 58 + Math.random() * 4,
+        temp: baseTemp,
+        hum: baseHum,
         chart: null,
-        status: "ok"
+        status: baseStatus
     };
 });
 
-// Chart.js 初始化
-warehouses.forEach(w => {
-    const ctx = document.getElementById(`chart-${w.id}`).getContext("2d");
+// ========== 初始化圖表 ==========
+warehouses.forEach(function(w) {
+    var ctx = document.getElementById('chart-' + w.id).getContext('2d');
     state[w.id].chart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -42,42 +63,49 @@ warehouses.forEach(w => {
             responsive: true,
             animation: false,
             plugins: { legend: { display: false } },
-            scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } }
+            scales: {
+                x: { ticks: { color: '#94a3b8' } },
+                y: { ticks: { color: '#94a3b8' } }
+            }
         }
     });
 });
 
-// 模擬資料
+// ========== 模擬感測器 ==========
 function simulateData(wid) {
-    let s = state[wid];
+    var s = state[wid];
     s.temp += (Math.random() - 0.5) * 0.5;
     s.hum += (Math.random() - 0.5) * 1.0;
     return { temp: s.temp, hum: s.hum };
 }
 
-// 更新顯示
+// ========== 更新畫面 ==========
 function updateWarehouse(wid, temp, hum) {
-    const t = document.getElementById(`temp-${wid}`);
-    const h = document.getElementById(`hum-${wid}`);
-    const st = document.getElementById(`status-${wid}`);
-    const card = document.getElementById(`card-${wid}`);
+    var t = document.getElementById('temp-' + wid);
+    var h = document.getElementById('hum-' + wid);
+    var st = document.getElementById('status-' + wid);
+    var card = document.getElementById('card-' + wid);
 
     t.textContent = temp.toFixed(1);
     h.textContent = hum.toFixed(1);
 
-    let status = "ok";
-    if (temp < 15 || temp > 25 || hum < 55 || hum > 65) status = "warn";
-    if (temp < 12 || temp > 28 || hum < 45 || hum > 75) status = "bad";
+    var status = 'ok';
+    if (temp < 15 || temp > 25 || hum < 55 || hum > 65) status = 'warn';
+    if (temp < 12 || temp > 28 || hum < 45 || hum > 75) status = 'bad';
 
-    st.className = "status-pill status-" + status;
-    st.textContent = status === "ok" ? "正常" : (status === "warn" ? "警告" : "危險");
+    st.className = 'status-pill status-' + status;
+    st.textContent = (status === 'ok') ? '正常' : (status === 'warn' ? '警告' : '危險');
 
-    card.classList.remove("warn", "bad");
-    if (status === "warn") card.classList.add("warn");
-    if (status === "bad") card.classList.add("bad");
+    card.classList.remove('warn', 'bad');
+    if (status === 'warn') card.classList.add('warn');
+    if (status === 'bad') card.classList.add('bad');
 
-    const chart = state[wid].chart;
-    const label = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+    // 永續化當前數值（回首頁/重整仍保留）
+    save('data_' + wid, { temp: temp, hum: hum, status: status });
+
+    // 更新圖表
+    var chart = state[wid].chart;
+    var label = new Date().toLocaleTimeString('zh-TW', { hour12: false });
     chart.data.labels.push(label);
     chart.data.datasets[0].data.push(temp);
     chart.data.datasets[1].data.push(hum);
@@ -89,19 +117,24 @@ function updateWarehouse(wid, temp, hum) {
     chart.update();
 }
 
-// 模擬每2秒更新
-setInterval(() => {
-    warehouses.forEach(w => {
-        const { temp, hum } = simulateData(w.id);
-        updateWarehouse(w.id, temp, hum);
+// ========== 2 秒一次模擬 ==========
+setInterval(function() {
+    warehouses.forEach(function(w) {
+        var d = simulateData(w.id);
+        updateWarehouse(w.id, d.temp, d.hum);
     });
 }, 2000);
 
-// 點擊卡片 → 詳細頁
-warehouses.forEach(w => {
-    const card = document.getElementById(`card-${w.id}`);
-    card.addEventListener('click', () => {
-        localStorage.setItem('currentWarehouse', w.id);
+// ========== 點擊跳詳情（附帶數據） ==========
+warehouses.forEach(function(w) {
+    var card = document.getElementById('card-' + w.id);
+    card.addEventListener('click', function() {
+        save('currentWarehouse', w.id);
+        save('currentData', {
+            temp: state[w.id].temp,
+            hum: state[w.id].hum,
+            status: state[w.id].status
+        });
         window.location.href = 'detail.html';
     });
 });
