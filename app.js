@@ -1,8 +1,10 @@
 // ========== 倉庫設定 ==========
 var warehouses = [
-    { id: "A", name: "倉庫 A" },
-    { id: "B", name: "倉庫 B" },
-    { id: "C", name: "倉庫 C" }
+    { id: "A", name: "水果倉庫" },
+    { id: "B", name: "綜合倉庫" },
+    { id: "C", name: "穀物倉庫" },
+    { id: "D", name: "冷藏倉庫" }
+
 ];
 
 // ========== 工具 ==========
@@ -129,12 +131,20 @@ setInterval(function() {
 warehouses.forEach(function(w) {
     var card = document.getElementById('card-' + w.id);
     card.addEventListener('click', function() {
-        save('currentWarehouse', w.id);
-        save('currentData', {
+
+        // 存 ID（用來讀取溫濕度資料）
+        localStorage.setItem('currentWarehouseId', w.id);
+
+        // 🔥 多存一個「顯示名稱」
+        localStorage.setItem('currentWarehouseName', w.name);
+
+        // 如果你有存 currentData，就照舊：
+        localStorage.setItem('currentData', JSON.stringify({
             temp: state[w.id].temp,
             hum: state[w.id].hum,
             status: state[w.id].status
-        });
+        }));
+
         window.location.href = 'detail.html';
     });
 });
